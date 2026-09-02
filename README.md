@@ -30,6 +30,14 @@ python -m http.server 8123
 
 Opening the file directly with `file://` also works.
 
+Deployed from `main` / root to GitHub Pages:
+**https://design-mkt-1.github.io/tb-sweetbonanza-lp/**
+
+The repo is private but a Pages site is public unless the account is on GitHub
+Enterprise. Only `index.html`, `assets/web/**` and `assets/fonts/**` are served
+as real files -- the ~280 MB of raw Pragmatic Play art is LFS-tracked, and Pages
+does not resolve LFS, so those paths return 132-byte pointer files.
+
 ## Sources
 
 | Source | What it gave us |
@@ -135,12 +143,13 @@ state. `prefers-reduced-motion` disables the float, flip and confetti.
 1. **Four placeholder URLs** — `example.com` on Terms of Service, Privacy Policy,
    "Log in" (in the markup) and `REGISTER_URL` (in `CONFIG`).
 2. **`DEMO_MODE: true`** — flip to `false` once there is a real destination.
-3. **`og:image` / `twitter:image` are relative.** Fine for Telegram, WhatsApp and
-   local preview; Facebook and X need absolute URLs, so prefix them with the
-   campaign domain at deploy.
-4. **Phone field is hardcoded to 🇺🇸 `+1`** with a `201 555 0199` placeholder,
+3. **`og:url` and the two image URLs are absolute to the GitHub Pages
+   deployment.** Repoint them when the LP moves to the campaign domain.
+4. **`<meta name="robots" content="noindex, nofollow">`** — correct for a review
+   link, must come out before a real campaign launch.
+5. **Phone field is hardcoded to 🇺🇸 `+1`** with a `201 555 0199` placeholder,
    exactly as the Figma component specifies — inconsistent with a UZS offer,
    which likely wants `+998`. Design decision, not a build one.
-5. **No sounds.** The original brief lists `pick.mp3` / `scatter.mp3` / `win.mp3`;
+6. **No sounds.** The original brief lists `pick.mp3` / `scatter.mp3` / `win.mp3`;
    no audio exists in the repo.
-6. **No analytics or conversion pixel** — none was requested.
+7. **No analytics or conversion pixel** — none was requested.
