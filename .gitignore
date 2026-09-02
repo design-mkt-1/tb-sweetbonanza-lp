@@ -1,0 +1,6 @@
+# Raw FiraGO webfonts (~1.25 MB). scripts/build-assets.py re-downloads them
+# from jsdelivr when missing; only the subset output in assets/fonts/ ships.
+assets/fonts/_src/
+
+# Python
+__pycache__/

@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TopBet — 200% Sport Bonus | Sweet Bonanza</title>
+<meta name="description" content="Find 3 bonus bombs in the grid and claim your TopBet welcome bonus.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#040405">
+<link rel="icon" href="assets/web/favicon.svg" type="image/svg+xml">
+
+<!-- Link preview. Paths are relative so this works locally and on Telegram /
+     WhatsApp; Facebook and X require ABSOLUTE urls, so prefix these three with
+     the campaign domain at deploy time. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TopBet">
+<meta property="og:title" content="200% Sport Bonus + 150 Free Spins — TopBet">
+<meta property="og:description" content="Find 3 bonus bombs in the Sweet Bonanza grid and claim your TopBet welcome bonus.">
+<meta property="og:image" content="assets/web/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="200% Sport Bonus + 150 Free Spins — TopBet">
+<meta name="twitter:description" content="Find 3 bonus bombs in the Sweet Bonanza grid and claim your TopBet welcome bonus.">
+<meta name="twitter:image" content="assets/web/og-image.jpg">
+<link rel="preload" href="assets/fonts/firago-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/firago-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+
+<style>
+/* ---------------------------------------------------------------------------
+   Fonts — FiraGO, per TopBet brand guide (Figma slide 3:1756).
+   Self-hosted and subset by scripts/build-assets.py so the page makes no
+   external requests at runtime.
+--------------------------------------------------------------------------- */
+@font-face { font-family: FiraGO; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/firago-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: FiraGO; font-style: normal; font-weight: 500; font-display: swap; src: url("assets/fonts/firago-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: FiraGO; font-style: normal; font-weight: 600; font-display: swap; src: url("assets/fonts/firago-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: FiraGO; font-style: normal; font-weight: 700; font-display: swap; src: url("assets/fonts/firago-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: FiraGO; font-style: normal; font-weight: 800; font-display: swap; src: url("assets/fonts/firago-latin-800-normal.woff2") format("woff2"); }
+
+/* ---------------------------------------------------------------------------
+   Tokens
+   Two palettes, deliberately kept separate:
+   --tb-*     TopBet brand board (Figma 3:559) — page shell, hero, pick grid
+   --f-*      Registration Form component (Figma 3:2828) — authoritative
+              inside the card, where it disagrees with the brand board
+--------------------------------------------------------------------------- */
+:root {
+  /* brand board */
+  --tb-accent:    #d21502;  /* logo red / CTA / promo sub-line / "Log in" */
+  --tb-alert:     #ff453a;  /* active tab, legal links, errors, radio ring */
+  --tb-signal:    #ff0000;
+  --tb-graphite:  #22252a;
+  --tb-black:     #000000;
+  --tb-deep:      #040405;
+  --tb-white:     #ffffff;
+
+  /* form component */
+  --f-stage:      #0a0a0c;
+  --f-card:       #0d0e12;
+  --f-surface:    #12151c;  /* tab bar, inputs, radio panel */
+  --f-pill:       #1b1f2a;  /* active tab pill */
+  --f-open:       #202329;  /* dropdown, open */
+  --f-border:     #202633;
+  --f-muted:      #8a94a6;  /* form chrome */
+  --f-muted-2:    #8e8e93;  /* success screen + chevron stroke */
+  --f-selected:   rgba(255, 255, 255, 0.06);
+  --f-success:    #3fd62b;
+  --f-halo:       rgba(63, 214, 43, 0.12);
+  --f-cred-bg:    #1c1c1e;
+  --f-cred-line:  #2c2c2e;
+
+  /* pick grid */
+  --cell-back-a:  #2b2f38;
+  --cell-back-b:  #14161b;
+  --cell-front:   #ffffff;
+  --cell-spent:   #b9bdc7;  /* a used-up wrong pick */
+  --gold:         #f5c842;
+
+  --radius:       12px;
+  --control-h:    44px;   /* mobile; desktop overrides to 54px */
+  --gap:          12px;   /* mobile; desktop overrides to 24px */
+}
+
+/* ---------------------------------------------------------------------------
+   Reset / shell
+--------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+/* `clip` rather than `hidden` so this never becomes a scroll container.
+   Needed because the decorative glow blobs behind the card intentionally
+   extend past the viewport edge. */
+html { -webkit-text-size-adjust: 100%; overflow-x: clip; }
+/* Every panel below sets an explicit `display`, which would otherwise win
+   over the UA's [hidden] rule and leave hidden panels on screen. */
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: FiraGO, "Fira Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--tb-white);
+  background-color: var(--tb-black);
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
+}
+
+/* Layered backdrop: candy art supplies the colour, TopBet dark/red stays
+   dominant. Three stacked layers on one pseudo-element pair. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+body::before {
+  background:
+    radial-gradient(105% 75% at 50% 0%, rgba(4, 4, 5, 0.80) 0%, rgba(4, 4, 5, 0.95) 55%, #000 88%),
+    url("assets/web/bg-candy-800.webp") center / cover no-repeat;
+}
+/* TopBet's diagonal blob motif from the brand slides — a whisper, not a pattern */
+body::after {
+  background:
+    repeating-linear-gradient(
+      118deg,
+      rgba(210, 21, 2, 0.055) 0px, rgba(210, 21, 2, 0.055) 110px,
+      rgba(210, 21, 2, 0) 110px,   rgba(210, 21, 2, 0) 320px
+    ),
+    radial-gradient(55% 40% at 82% 4%, rgba(210, 21, 2, 0.20), transparent 70%);
+}
+@media (min-width: 768px) {
+  body::before { background-image:
+    radial-gradient(105% 75% at 50% 0%, rgba(4, 4, 5, 0.80) 0%, rgba(4, 4, 5, 0.95) 55%, #000 88%),
+    url("assets/web/bg-candy-1600.webp"); }
+}
+
+.shell {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 20px 16px 0;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 768px) { .shell { padding: 32px 32px 0; } }
+
+.masthead { display: flex; justify-content: center; margin-bottom: 18px; }
+.masthead img { width: 132px; height: auto; display: block; }
+@media (min-width: 768px) { .masthead img { width: 164px; } }
+
+.site-footer {
+  flex: 0 0 auto;
+  padding: 24px 16px calc(20px + env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--f-muted);
+}
+
+.screen { display: none; }
+.screen.is-active { display: block; }
+
+/* ---------------------------------------------------------------------------
+   Promo lockup — shared by the hero and the registration card
+--------------------------------------------------------------------------- */
+.promo { text-align: center; }
+.promo-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4.27px;
+}
+/* Clamped so the lockup never crowds the edges of a 360px phone; the upper
+   bounds are the Figma mobile sizes. */
+.promo-pct {
+  font-size: clamp(56px, 19vw, 80px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 34px rgba(210, 21, 2, 0.85), 0 3px 0 rgba(0, 0, 0, 0.4);
+}
+.promo-words {
+  display: flex;
+  flex-direction: column;
+  gap: 8.55px;
+  font-size: clamp(23px, 7.6vw, 32px);
+  font-weight: 800;
+  line-height: 0.85;
+  text-transform: uppercase;
+  text-align: left;
+}
+.promo-sub {
+  margin: 6px 0 0;
+  font-size: clamp(14px, 4.7vw, 20px);
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--tb-accent);
+}
+@media (min-width: 768px) {
+  .promo-line { gap: 5.58px; }
+  .promo-pct { font-size: 104px; }
+  .promo-words { font-size: 42px; gap: 11.16px; }
+  .promo-sub { font-size: 26px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Screen 1 — pick grid
+--------------------------------------------------------------------------- */
+.hero { text-align: center; }
+.hero .game-logo {
+  display: block;
+  margin: 8px auto 0;
+  width: min(42vw, 170px);        /* portrait lockup */
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgba(0, 209, 255, 0.35));
+}
+@media (min-width: 600px) { .hero .game-logo { width: 320px; } }
+@media (min-width: 768px) { .hero .game-logo { width: 420px; margin-top: 14px; } }
+
+/* Shows the exact tile the player is hunting for, so the rule is unmissable. */
+.target {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 5px 16px 5px 5px;
+  border: 1px solid var(--f-border);
+  border-radius: 50px;
+  background: rgba(18, 21, 28, 0.78);
+}
+.target img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  background: #000;
+  object-fit: cover;
+}
+.target span { font-size: 14px; font-weight: 600; }
+
+.counter-wrap {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+.counter {
+  padding: 7px 16px;
+  border: 1px solid var(--f-border);
+  border-radius: 50px;
+  background: var(--f-surface);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.counter-found { color: var(--gold); border-color: rgba(245, 200, 66, 0.45); }
+.counter-left  { color: var(--f-muted); }
+.counter.is-bumped { animation: counterBounce 0.32s ease; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 20px auto 0;
+  max-width: 420px;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 768px) {
+  .grid { grid-template-columns: repeat(6, 1fr); gap: 12px; max-width: 720px; }
+}
+
+/* A <button> is shrink-to-fit by default and would collapse inside the grid
+   track, so it has to be stretched explicitly. */
+.cell {
+  display: block;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  perspective: 700px;
+  cursor: pointer;
+  animation: cardFloat 3.4s ease-in-out infinite;
+}
+.cell:disabled { cursor: default; }
+.cell.is-flipped { animation: none; }
+.cell:focus-visible { outline: 2px solid var(--tb-alert); outline-offset: 3px; border-radius: 12px; }
+
+.cell-inner {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.3s ease;
+}
+.cell.is-flipped .cell-inner { transform: rotateY(180deg); }
+
+.face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  backface-visibility: hidden;
+  overflow: hidden;
+}
+.face-back {
+  background: linear-gradient(140deg, var(--cell-back-a), var(--cell-back-b));
+  border: 1px solid var(--f-border);
+  color: var(--tb-accent);
+  font-size: clamp(20px, 6vw, 30px);
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.face-front {
+  transform: rotateY(180deg);
+  background: var(--cell-front);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+.face-front img { width: 78%; height: 78%; object-fit: contain; }
+
+/* The winning tile. Its source art has no alpha and sits on a pure-black
+   plate, so the face is black too and the artwork bleeds edge to edge. */
+.cell.is-win .face-front {
+  background: #000;
+  border: 2px solid var(--gold);
+}
+.cell.is-win .face-front img { width: 100%; height: 100%; object-fit: cover; }
+.cell.is-win.is-flipped .face-front { animation: winPop 0.5s ease 0.22s both; }
+
+/* A wrong pick stays face-up but reads as spent -- still identifiable, clearly
+   not in play any more. */
+.cell.is-miss .face-front { background: var(--cell-spent); }
+.cell.is-miss .face-front img { opacity: 0.6; filter: grayscale(0.45); }
+
+/* ---------------------------------------------------------------------------
+   Screen 2 — reveal + registration
+--------------------------------------------------------------------------- */
+.reveal-wrap {
+  animation: revealExpand 0.4s ease both;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.reveal { text-align: center; margin-bottom: 20px; }
+.reveal-scatters {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold);
+}
+.reveal-title {
+  margin: 6px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.reveal-bonus {
+  margin: 8px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--tb-white);
+  animation: bonusPulse 2s ease-in-out infinite;
+}
+@media (min-width: 768px) {
+  .reveal-title { font-size: 30px; }
+  .reveal-bonus { font-size: 22px; }
+}
+
+/* Decorative glow blobs — desktop only, per the component's background layer */
+.reg-stage { position: relative; width: 100%; display: flex; justify-content: center; }
+.glow { display: none; }
+@media (min-width: 768px) {
+  .glow {
+    display: block;
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(45px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-1 { width: 400px; height: 400px; background: #ff2d55; opacity: 0.0706; left: calc(50% - 300px); top: 100px; }
+  .glow-2 { width: 350px; height: 350px; background: #5856d6; opacity: 0.0706; left: calc(50% + 50px); top: 450px; }
+  .glow-3 { width: 300px; height: 300px; background: #3fd62b; opacity: 0.051;  left: calc(50% - 100px); top: -50px; }
+}
+
+/* The wrapper. On mobile the promo sits above a translucent panel; on desktop
+   both live inside one opaque card, so .reg-panel collapses to `contents`
+   and the card's own gap drives the rhythm. */
+.reg {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 350px;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  border-radius: 34px;
+}
+.reg-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: 8px 8px 34px;
+  border-radius: var(--radius);
+  background: rgba(10, 11, 14, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+@media (min-width: 768px) {
+  :root { --control-h: 54px; --gap: 24px; }
+  .reg {
+    max-width: 500px;
+    padding: 32px;
+    border-radius: var(--radius);
+    background: var(--f-card);
+    border: 1.5px solid var(--f-border);
+    filter: drop-shadow(0 20px 20px rgba(0, 0, 0, 0.7));
+  }
+  .reg-panel {
+    display: contents;
+    background: none;
+    backdrop-filter: none;
+    padding: 0;
+  }
+}
+
+/* tabs */
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+  border-radius: var(--radius);
+  background: var(--f-surface);
+}
+.tab {
+  flex: 1;
+  height: 42px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--f-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  background: var(--f-pill);
+  border-color: var(--f-border);
+  color: var(--tb-alert);
+}
+.tab:focus-visible { outline: 2px solid var(--tb-alert); outline-offset: 2px; }
+@media (min-width: 768px) {
+  .tabs { height: 48px; padding: 4px; }
+  .tab { height: 100%; }
+}
+
+/* fields */
+.field { display: flex; flex-direction: column; gap: 0; }
+.field.is-error { gap: 8px; }
+.field[hidden] { display: none; }
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--control-h);
+  padding: 0 16px;
+  border: 1px solid var(--f-border);
+  border-radius: var(--radius);
+  background: var(--f-surface);
+}
+.field.is-error .input-row { border-color: var(--tb-alert); }
+.input-row:focus-within {
+  border-color: var(--tb-alert);
+  box-shadow: 0 0 0 3px rgba(255, 69, 58, 0.15);
+}
+
+.country {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 0;
+  margin: 0;
+  height: 100%;
+  border: 0;
+  border-right: 1px solid var(--f-border);
+  border-radius: 0;
+  background: none;
+  color: var(--tb-white);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: default;
+}
+.country .flag { flex: 0 0 auto; display: block; border-radius: 2px; }
+
+.input-row input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--tb-white);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  outline: none;
+}
+.input-row input::placeholder { color: var(--f-muted); opacity: 1; }
+
+.field-error {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--tb-alert);
+}
+.field:not(.is-error) .field-error { display: none; }
+
+/* bonus dropdown */
+.bonus { display: flex; flex-direction: column; gap: 8px; }
+.bonus-label { font-size: 13px; font-weight: 600; color: var(--f-muted); }
+
+.dropdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 16px;
+  border: 1px solid var(--f-border);
+  border-radius: var(--radius);
+  background: var(--f-surface);
+  color: var(--tb-white);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.dropdown[aria-expanded="true"] { background: var(--f-open); }
+.dropdown:focus-visible { outline: 2px solid var(--tb-alert); outline-offset: 2px; }
+.dropdown-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chevron { flex: 0 0 auto; transition: transform 0.2s ease; }
+.dropdown[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+
+.bonus-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--f-border);
+  border-radius: var(--radius);
+  background: var(--f-surface);
+}
+.bonus-options[hidden] { display: none; }
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.option:has(input:checked) { background: var(--f-selected); }
+.option:has(input:focus-visible) { outline: 2px solid var(--tb-alert); outline-offset: -2px; }
+.option input { position: absolute; opacity: 0; pointer-events: none; }
+.option-text { display: flex; flex-direction: column; gap: 2px; }
+.option-title { font-size: 14px; font-weight: 600; color: var(--tb-white); }
+.option-sub { font-size: 12px; font-weight: 400; color: var(--f-muted); }
+
+.radio {
+  flex: 0 0 auto;
+  order: 2;
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--f-muted);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.option:has(input:checked) .radio { border-color: var(--tb-alert); }
+.radio::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--tb-alert);
+  transform: scale(0);
+  transition: transform 0.15s ease;
+}
+.option:has(input:checked) .radio::after { transform: scale(1); }
+
+/* legal + cta */
+.legal {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--f-muted);
+}
+.legal a { color: var(--tb-alert); text-decoration: underline; text-underline-position: from-font; }
+
+.reg-footer { display: flex; flex-direction: column; gap: 16px; }
+
+.cta {
+  width: 100%;
+  height: var(--control-h);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--tb-accent);
+  color: var(--tb-white);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.cta:hover { filter: brightness(1.12); }
+.cta:active { filter: brightness(0.94); }
+.cta:focus-visible { outline: 2px solid var(--tb-white); outline-offset: 2px; }
+
+.have-account {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--f-muted);
+}
+.have-account a { color: var(--tb-accent); font-weight: 700; text-decoration: underline; }
+
+/* ---------------------------------------------------------------------------
+   Success panel
+--------------------------------------------------------------------------- */
+.success {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 360px;
+  padding: 24px 16px 34px;
+  border-radius: var(--radius);
+  background: #0a0b0e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  animation: revealExpand 0.35s ease both;
+}
+@media (min-width: 768px) {
+  /* Match the registration card so the panel doesn't jump width on submit
+     (Figma has a 500px desktop success variant, 3:3034). */
+  .success {
+    max-width: 500px;
+    padding: 32px;
+    border: 1.5px solid var(--f-border);
+    filter: drop-shadow(0 20px 20px rgba(0, 0, 0, 0.7));
+  }
+}
+.success img.brand { width: 147px; height: auto; }
+.success-icon {
+  width: 100px;
+  height: 100px;
+  border: 2px solid var(--f-success);
+  border-radius: var(--radius);
+  background: var(--f-halo);
+  display: grid;
+  place-items: center;
+}
+.success-icon > span {
+  width: 70px;
+  height: 70px;
+  border-radius: var(--radius);
+  background: var(--f-success);
+  display: grid;
+  place-items: center;
+}
+.success-head { display: flex; flex-direction: column; gap: 8px; text-align: center; }
+.success-head h2 { margin: 0; font-size: 28px; font-weight: 700; }
+.success-head p { margin: 0; font-size: 15px; font-weight: 400; color: var(--f-muted-2); }
+
+.creds {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--f-cred-line);
+  border-radius: var(--radius);
+  background: var(--f-cred-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.creds-row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.creds-row dt { color: var(--f-muted-2); font-weight: 400; }
+.creds-row dd { margin: 0; color: var(--tb-white); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.creds-line { height: 1px; background: var(--f-cred-line); }
+
+/* ---------------------------------------------------------------------------
+   Confetti
+--------------------------------------------------------------------------- */
+.confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+.confetti i {
+  position: absolute;
+  top: -12vh;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+}
+
+/* ---------------------------------------------------------------------------
+   Keyframes
+--------------------------------------------------------------------------- */
+@keyframes cardFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+@keyframes winPop {
+  0%   { transform: rotateY(180deg) scale(1);   box-shadow: 0 0 0 rgba(245, 200, 66, 0); }
+  45%  { transform: rotateY(180deg) scale(1.3); box-shadow: 0 0 26px 6px rgba(245, 200, 66, 0.85); }
+  100% { transform: rotateY(180deg) scale(1);   box-shadow: 0 0 12px 2px rgba(245, 200, 66, 0.4); }
+}
+@keyframes counterBounce {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+@keyframes revealExpand {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes bonusPulse {
+  0%, 100% { transform: scale(1);    text-shadow: 0 0 18px rgba(245, 200, 66, 0.35); }
+  50%      { transform: scale(1.04); text-shadow: 0 0 28px rgba(245, 200, 66, 0.75); }
+}
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(115vh) rotate(720deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .confetti { display: none; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="shell">
+  <header class="masthead">
+    <img src="assets/web/topbet-logo.svg" alt="TopBet" width="164" height="36">
+  </header>
+
+  <!-- ===================== Screen 1 — pick grid ===================== -->
+  <section class="screen is-active" id="screen-pick" aria-labelledby="hero-title">
+    <div class="hero">
+      <div class="promo" id="hero-title">
+        <div class="promo-line">
+          <span class="promo-pct" data-copy="pct"></span>
+          <span class="promo-words"><span>Sport</span><span>Bonus</span></span>
+        </div>
+        <p class="promo-sub" data-copy="promoSub"></p>
+      </div>
+
+      <picture>
+        <!-- The two-line lockup carries far better at phone widths; the wide
+             one-line version is only legible once there is room for it. -->
+        <source media="(min-width: 600px)" srcset="assets/web/sb-logo-landscape.webp" width="900" height="165">
+        <img class="game-logo" src="assets/web/sb-logo-portrait.webp"
+             alt="Sweet Bonanza" width="560" height="286" fetchpriority="high">
+      </picture>
+
+      <p class="target">
+        <img src="assets/web/sym/bomb.webp" alt="" width="320" height="320">
+        <span data-copy="lede"></span>
+      </p>
+      <p class="counter-wrap">
+        <span class="counter counter-found" id="counter-found" role="status" aria-live="polite"></span>
+        <span class="counter counter-left" id="counter-left"></span>
+      </p>
+    </div>
+
+    <ul class="grid" id="grid" aria-label="Pick grid"></ul>
+  </section>
+
+  <!-- ================ Screen 2 — reveal + registration ================ -->
+  <section class="screen" id="screen-claim" aria-labelledby="reveal-title">
+    <div class="reveal-wrap">
+      <div class="reveal">
+        <p class="reveal-scatters" data-copy="revealFound"></p>
+        <h1 class="reveal-title" id="reveal-title" data-copy="revealTitle"></h1>
+        <p class="reveal-bonus" data-copy="revealPrize"></p>
+      </div>
+
+      <div class="reg-stage">
+        <span class="glow glow-1"></span>
+        <span class="glow glow-2"></span>
+        <span class="glow glow-3"></span>
+
+        <form class="reg" id="reg-form" novalidate>
+          <div class="promo">
+            <div class="promo-line">
+              <span class="promo-pct" data-copy="pct"></span>
+              <span class="promo-words"><span>Sport</span><span>Bonus</span></span>
+            </div>
+            <p class="promo-sub" data-copy="promoSub"></p>
+          </div>
+
+          <div class="reg-panel">
+            <div class="tabs" role="tablist" aria-label="Sign-up method">
+              <button type="button" class="tab" role="tab" id="tab-phone"
+                      data-tab="phone" aria-selected="true" aria-controls="field-phone">Phone Number</button>
+              <button type="button" class="tab" role="tab" id="tab-email"
+                      data-tab="email" aria-selected="false" aria-controls="field-email">Email Address</button>
+            </div>
+
+            <div class="fields">
+              <div class="field" id="field-phone" role="tabpanel" aria-labelledby="tab-phone">
+                <div class="input-row">
+                  <span class="country">
+                    <!-- Drawn rather than the regional-indicator emoji: Windows
+                         ships no flag glyphs and renders it as the letters "US". -->
+                    <svg class="flag" width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">
+                      <rect width="20" height="14" rx="1.5" fill="#ffffff"/>
+                      <g fill="#b22234">
+                        <rect y="0" width="20" height="1.08"/><rect y="2.15" width="20" height="1.08"/>
+                        <rect y="4.31" width="20" height="1.08"/><rect y="6.46" width="20" height="1.08"/>
+                        <rect y="8.62" width="20" height="1.08"/><rect y="10.77" width="20" height="1.08"/>
+                        <rect y="12.92" width="20" height="1.08"/>
+                      </g>
+                      <rect width="8.6" height="7.54" rx="1.5" fill="#3c3b6e"/>
+                    </svg>
+                    <span>+1</span>
+                    <svg class="chevron" width="14" height="9" viewBox="0 0 14 9" fill="none" aria-hidden="true">
+                      <path d="M3.5 3.375 L7 5.625 L10.5 3.375" stroke="#8E8E93" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </span>
+                  <input type="tel" id="phone" name="phone" inputmode="tel"
+                         autocomplete="tel-national" placeholder="201 555 0199" aria-label="Phone number">
+                </div>
+                <p class="field-error">Invalid phone number</p>
+              </div>
+
+              <div class="field" id="field-email" role="tabpanel" aria-labelledby="tab-email" hidden>
+                <div class="input-row">
+                  <input type="email" id="email" name="email" inputmode="email"
+                         autocomplete="email" placeholder="you@example.com" aria-label="Email address">
+                </div>
+                <p class="field-error">Invalid email address</p>
+              </div>
+            </div>
+
+            <div class="bonus">
+              <span class="bonus-label" id="bonus-label">Choose Welcome Bonus</span>
+              <button type="button" class="dropdown" id="bonus-toggle"
+                      aria-expanded="false" aria-controls="bonus-options" aria-labelledby="bonus-label bonus-value">
+                <span class="dropdown-value" id="bonus-value"></span>
+                <svg class="chevron" width="14" height="9" viewBox="0 0 14 9" fill="none" aria-hidden="true">
+                  <path d="M3.5 3.375 L7 5.625 L10.5 3.375" stroke="#8E8E93" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+
+              <div class="bonus-options" id="bonus-options" role="radiogroup" aria-labelledby="bonus-label" hidden>
+                <label class="option">
+                  <input type="radio" name="bonus" value="sport" checked>
+                  <span class="option-text">
+                    <span class="option-title">&#9917; Sport Bonus (100% Freebet)</span>
+                    <span class="option-sub" data-copy="optSportSub"></span>
+                  </span>
+                  <span class="radio" aria-hidden="true"></span>
+                </label>
+                <label class="option">
+                  <input type="radio" name="bonus" value="casino">
+                  <span class="option-text">
+                    <span class="option-title">&#127920; Casino Bonus (120% + 250 FS)</span>
+                    <span class="option-sub">Get free spins and big multipliers</span>
+                  </span>
+                  <span class="radio" aria-hidden="true"></span>
+                </label>
+              </div>
+            </div>
+
+            <p class="legal">
+              By tapping Create Account, you agree to our
+              <a href="https://example.com/terms" target="_blank" rel="noopener">Terms of Service</a> &amp;
+              <a href="https://example.com/privacy" target="_blank" rel="noopener">Privacy Policy</a>. Must be 21+.
+            </p>
+
+            <div class="reg-footer">
+              <button type="submit" class="cta">Create Account</button>
+              <p class="have-account">Already have an account?
+                <a href="https://example.com/login" target="_blank" rel="noopener">Log in</a>
+              </p>
+            </div>
+          </div>
+        </form>
+
+        <!-- Success state (Figma 3:2581) -->
+        <div class="success" id="success" hidden>
+          <img class="brand" src="assets/web/topbet-logo.svg" alt="TopBet" width="147" height="32">
+          <div class="success-icon">
+            <span>
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+                <path d="M29.9988 9 L13.5005 25.4988 L6.0012 17.9993"
+                      stroke="#000000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+          <div class="success-head">
+            <h2>Registration Successful!</h2>
+            <p id="success-sub"></p>
+          </div>
+          <dl class="creds">
+            <div class="creds-row"><dt id="cred-key">Email</dt><dd id="cred-value">user@example.com</dd></div>
+            <div class="creds-line"></div>
+            <div class="creds-row"><dt>Password</dt><dd>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</dd></div>
+          </dl>
+          <button type="button" class="cta" id="go-to-site">Go to website</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer class="site-footer">18+ | Play responsibly | T&amp;C apply</footer>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Configuration — every campaign-specific number lives here.
+   The Figma component ships unfinished placeholders ("(СУММА)",
+   "Welcome Freebet 55 0..."); these variables are what replaces them.
+--------------------------------------------------------------------------- */
+const CONFIG = {
+  TOTAL_CELLS:   24,
+  BOMBS_TO_FIND: 3,
+
+  // How many taps the player gets. Re-rolled on every page load so the round
+  // length varies; the outcome does not (see newRound).
+  ATTEMPTS_MIN:  4,
+  ATTEMPTS_MAX:  7,
+
+  BONUS_PCT:  200,
+  MAX_BONUS:  '1 000 000 UZS',
+  FREE_SPINS: 150,
+  FREEBET:    '55 000 UZS',
+
+  DEMO_MODE:    true,   // false -> submit redirects to REGISTER_URL
+  REGISTER_URL: 'https://example.com/register',
+  BRAND_NAME:   'TopBet',
+  LANG:         'en',
+};
+
+/* All user-facing strings in one place, so a future RO/UZ pass is one edit. */
+const COPY = {
+  pct:         CONFIG.BONUS_PCT + '%',
+  promoSub:    'or up to ' + CONFIG.MAX_BONUS + ' + ' + CONFIG.FREE_SPINS + ' FS',
+  lede:        'Find ' + CONFIG.BOMBS_TO_FIND + ' of these to win',
+  found:       n => n + ' / ' + CONFIG.BOMBS_TO_FIND + ' found',
+  left:        n => n + (n === 1 ? ' pick left' : ' picks left'),
+  revealFound: CONFIG.BOMBS_TO_FIND + ' / ' + CONFIG.BOMBS_TO_FIND + ' bombs found!',
+  revealTitle: 'Congratulations!',
+  revealPrize: 'You won ' + CONFIG.BONUS_PCT + '% Bonus + ' + CONFIG.FREE_SPINS + ' Free Spins',
+  bonusValue:  'Welcome Freebet ' + CONFIG.FREEBET,
+  optSportSub: 'Get up to ' + CONFIG.MAX_BONUS + ' on sport bets',
+  successSub:  'Your account has been successfully created. Bonus ' +
+               CONFIG.FREEBET + ' is active.',
+};
+
+/* Losing symbols. The 200%/150FS bomb is the only tile that counts. */
+const CANDIES = [
+  'gem-heart', 'gem-purple', 'gem-green', 'gem-blue',
+  'apple', 'plum', 'watermelon', 'berries', 'bananas',
+];
+const BOMB = 'bomb';
+const symbolUrl = slug => 'assets/web/sym/' + slug + '.webp';
+
+const $  = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+/* Fill every [data-copy] placeholder from COPY. */
+$$('[data-copy]').forEach(el => { el.textContent = COPY[el.dataset.copy]; });
+$('#bonus-value').textContent = COPY.bonusValue;
+$('#success-sub').textContent = COPY.successSub;
+
+/* ---------------------------------------------------------------------------
+   Pick grid
+
+   The round is scripted rather than seeded into the board: the outcome of each
+   tap is decided by WHICH tap it is, not by what was hidden under that cell.
+   That keeps the win guaranteed while the board still looks random, and it is
+   why nothing is pre-assigned in buildGrid().
+--------------------------------------------------------------------------- */
+const gridEl   = $('#grid');
+const foundEl  = $('#counter-found');
+const leftEl   = $('#counter-left');
+
+let attemptsTotal = 0;   // taps allowed this round, re-rolled per page load
+let picksUsed     = 0;
+let bombsFound    = 0;
+let bombPicks     = new Set();  // 1-based tap numbers that reveal the bomb
+let candyBag      = [];
+let locked        = false;
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function randInt(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+/* Draw losing symbols without repeating one until the bag runs dry. */
+function nextCandy() {
+  if (!candyBag.length) candyBag = shuffle(CANDIES.slice());
+  return candyBag.pop();
+}
+
+function newRound() {
+  // Fewer taps than bombs could never complete the round, and the grid would
+  // sit there locked-open forever. Clamp instead of hanging.
+  const floor = Math.max(CONFIG.ATTEMPTS_MIN, CONFIG.BOMBS_TO_FIND);
+  if (CONFIG.ATTEMPTS_MIN < CONFIG.BOMBS_TO_FIND) {
+    console.warn('CONFIG.ATTEMPTS_MIN raised to BOMBS_TO_FIND (' + CONFIG.BOMBS_TO_FIND + ')');
+  }
+  attemptsTotal = randInt(floor, Math.max(floor, CONFIG.ATTEMPTS_MAX));
+  picksUsed = 0;
+  bombsFound = 0;
+  locked = false;
+  candyBag = [];
+
+  // The last tap is always the final bomb, so the round ends on the win rather
+  // than fizzling out with picks to spare. The other bombs land on a random
+  // subset of the earlier taps.
+  const earlier = shuffle(Array.from({ length: attemptsTotal - 1 }, (_, i) => i + 1));
+  bombPicks = new Set([attemptsTotal, ...earlier.slice(0, CONFIG.BOMBS_TO_FIND - 1)]);
+}
+
+function buildGrid() {
+  gridEl.innerHTML = '';
+  for (let i = 0; i < CONFIG.TOTAL_CELLS; i++) {
+    const li = document.createElement('li');
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'cell';
+    cell.style.animationDelay = (i % 7) * 0.18 + 's';
+    cell.setAttribute('aria-label', 'Cell ' + (i + 1) + ', hidden');
+    cell.innerHTML =
+      '<span class="cell-inner">' +
+        '<span class="face face-back" aria-hidden="true">?</span>' +
+        '<span class="face face-front"><img alt="" decoding="async"></span>' +
+      '</span>';
+
+    cell.addEventListener('click', () => pick(cell));
+    li.appendChild(cell);
+    gridEl.appendChild(li);
+  }
+}
+
+/* The tiles are only attached to a cell at tap time, so decode them up front —
+   otherwise the first flip of each symbol shows an empty card. */
+function preloadSymbols() {
+  CANDIES.concat(BOMB).forEach(slug => { new Image().src = symbolUrl(slug); });
+}
+
+function pick(cell) {
+  // A flipped cell never re-triggers, and the grid goes inert once won.
+  if (locked || cell.classList.contains('is-flipped')) return;
+
+  picksUsed++;
+  const isBomb = bombPicks.has(picksUsed);
+  const symbol = isBomb ? BOMB : nextCandy();
+
+  cell.querySelector('.face-front img').src = symbolUrl(symbol);
+  cell.classList.add('is-flipped', isBomb ? 'is-win' : 'is-miss');
+  cell.disabled = true;
+  cell.setAttribute('aria-label', isBomb ? 'Bonus bomb found' : symbol.replace('-', ' '));
+
+  if (isBomb) bombsFound++;
+  updateCounters();
+
+  // By construction the third bomb is the last tap, so this is also the point
+  // where the attempts run out.
+  if (bombsFound >= CONFIG.BOMBS_TO_FIND) {
+    locked = true;
+    $$('.cell').forEach(c => { c.disabled = true; });
+    setTimeout(showClaim, 900);
+  }
+}
+
+function updateCounters() {
+  foundEl.textContent = COPY.found(bombsFound);
+  leftEl.textContent  = COPY.left(Math.max(0, attemptsTotal - picksUsed));
+  foundEl.classList.remove('is-bumped');
+  void foundEl.offsetWidth; // restart the animation
+  foundEl.classList.add('is-bumped');
+}
+
+/* ---------------------------------------------------------------------------
+   Reveal
+--------------------------------------------------------------------------- */
+function showClaim() {
+  $('#screen-pick').classList.remove('is-active');
+  $('#screen-claim').classList.add('is-active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  fireConfetti();
+}
+
+function fireConfetti() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const colours = ['#d21502', '#ff453a', '#f5c842', '#3fd62b', '#ffffff', '#7b3fbe'];
+  const layer = document.createElement('div');
+  layer.className = 'confetti';
+
+  for (let i = 0; i < 30; i++) {
+    const bit = document.createElement('i');
+    bit.style.left            = Math.random() * 100 + 'vw';
+    bit.style.background      = colours[i % colours.length];
+    bit.style.animationDelay  = Math.random() * 0.6 + 's';
+    bit.style.animationDuration = 1.8 + Math.random() * 1.4 + 's';
+    layer.appendChild(bit);
+  }
+
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), 4000);
+}
+
+/* ---------------------------------------------------------------------------
+   Registration form
+--------------------------------------------------------------------------- */
+const form      = $('#reg-form');
+const tabs      = $$('.tab');
+const fieldMap  = { phone: $('#field-phone'), email: $('#field-email') };
+const inputMap  = { phone: $('#phone'),       email: $('#email')       };
+let activeTab   = 'phone';
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    activeTab = tab.dataset.tab;
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+    Object.entries(fieldMap).forEach(([key, field]) => {
+      field.hidden = key !== activeTab;
+      field.classList.remove('is-error');
+    });
+    inputMap[activeTab].focus();
+  });
+});
+
+/* Bonus dropdown */
+const bonusToggle  = $('#bonus-toggle');
+const bonusOptions = $('#bonus-options');
+
+bonusToggle.addEventListener('click', () => {
+  const open = bonusToggle.getAttribute('aria-expanded') === 'true';
+  bonusToggle.setAttribute('aria-expanded', String(!open));
+  bonusOptions.hidden = open;
+});
+
+$$('.option input').forEach(radio => {
+  radio.addEventListener('change', () => {
+    $('#bonus-value').textContent =
+      radio.closest('.option').querySelector('.option-title').textContent;
+    bonusToggle.setAttribute('aria-expanded', 'false');
+    bonusOptions.hidden = true;
+  });
+});
+
+/* Validation + demo submit */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function isValid(tab, value) {
+  return tab === 'phone'
+    ? value.replace(/\D/g, '').length >= 8
+    : EMAIL_RE.test(value.trim());
+}
+
+form.addEventListener('submit', event => {
+  event.preventDefault();
+
+  const field = fieldMap[activeTab];
+  const value = inputMap[activeTab].value;
+
+  if (!isValid(activeTab, value)) {
+    field.classList.add('is-error');
+    inputMap[activeTab].focus();
+    return;
+  }
+  field.classList.remove('is-error');
+
+  if (!CONFIG.DEMO_MODE) {
+    window.location.href = CONFIG.REGISTER_URL;
+    return;
+  }
+
+  $('#cred-key').textContent   = activeTab === 'phone' ? 'Phone' : 'Email';
+  $('#cred-value').textContent = activeTab === 'phone' ? '+1 ' + value.trim() : value.trim();
+  form.hidden = true;
+  $('#success').hidden = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+/* Clear the error as soon as the player starts fixing the input. */
+Object.entries(inputMap).forEach(([key, input]) => {
+  input.addEventListener('input', () => fieldMap[key].classList.remove('is-error'));
+});
+
+$('#go-to-site').addEventListener('click', () => {
+  if (!CONFIG.DEMO_MODE) window.location.href = CONFIG.REGISTER_URL;
+});
+
+/* --------------------------------------------------------------------- */
+preloadSymbols();
+newRound();
+buildGrid();
+updateCounters();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+# Raw game art from Pragmatic Play: ~280 MB of print-resolution PNG/JPG/GIF.
+# These are the source of truth for scripts/build-assets.py and are never
+# served by the page, so they go to LFS to keep clones of the actual site light.
+assets/Symbols/**    filter=lfs diff=lfs merge=lfs -text
+assets/Gameart/**    filter=lfs diff=lfs merge=lfs -text
+assets/Animations/** filter=lfs diff=lfs merge=lfs -text
+assets/*.png         filter=lfs diff=lfs merge=lfs -text
+
+# Everything under assets/web/ and assets/fonts/ is the built, web-sized output
+# (~455 KB total) and deliberately stays in plain git.
