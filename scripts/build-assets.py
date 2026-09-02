@@ -33,12 +33,18 @@ SRC_GAMEART = ROOT / "assets" / "Gameart"
 SRC_LOGO = ROOT / "logo"
 OUT = ROOT / "assets" / "web"
 OUT_SYM = OUT / "sym"
+OUT_AUDIO = OUT / "audio"
+AUDIO_SRC = ROOT / "assets" / "audio" / "_src"
 FONTS = ROOT / "assets" / "fonts"
 FONTS_SRC = FONTS / "_src"
 
 # Total budget for assets/web/ + assets/fonts/. The page must stay light
 # enough for a mobile landing page on a cold connection.
 SIZE_BUDGET_KB = 600
+
+# Game SFX, generated with ElevenLabs. The three bombs share one clip, pitched
+# up per bomb in the page, so there is no bomb-2/bomb-3 here.
+SFX_SLUGS = ("flip", "bomb", "win", "error", "success")
 
 # The brand guide (Figma slide 3:1756) specifies FiraGO. It is not on Google
 # Fonts; fontsource is the only CDN that ships it.
@@ -285,6 +291,21 @@ def copy_svgs() -> None:
         record(dst)
 
 
+def build_audio() -> None:
+    """Publish the game SFX. They are already web-sized MP3s, so this is a copy
+    rather than a transcode -- but it still has to run from the script, because
+    main() wipes assets/web/ on every build and anything dropped there by hand
+    would not survive. assets/audio/_src/ is the source of truth."""
+    OUT_AUDIO.mkdir(parents=True, exist_ok=True)
+    for slug in SFX_SLUGS:
+        src = AUDIO_SRC / f"{slug}.mp3"
+        if not src.exists():
+            sys.exit(f"missing source sfx: {src}")
+        dst = OUT_AUDIO / f"{slug}.mp3"
+        shutil.copyfile(src, dst)
+        record(dst)
+
+
 def font_source(weight: int) -> Path:
     """The full, un-subset FiraGO woff2, downloading it if this is a fresh
     checkout (assets/fonts/_src is gitignored)."""
@@ -326,6 +347,7 @@ def main() -> None:
     build_background()
     build_game_logo()
     copy_svgs()
+    build_audio()
     build_fonts()
     build_og_image()  # last: reuses the bomb tile and the resized game logo
 

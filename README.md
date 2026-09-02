@@ -48,6 +48,7 @@ does not resolve LFS, so those paths return 132-byte pointer files.
 | Figma node `3:1756` | typeface: **FiraGO** (light / semibold / heavy) |
 | Figma node `3:2176` | the **Registration Form** component set — 22 Device × Tab × State variants |
 | `assets/Symbols`, `assets/Gameart`, `assets/` | Pragmatic Play *Sweet Bonanza* art |
+| `assets/audio/_src` | five SFX generated with ElevenLabs (flip, bomb, win, error, success) |
 
 The registration card is built against `3:2828` (desktop, Bonus Open),
 `3:2387` (mobile, Bonus Open), `3:2214` (error) and `3:2581` (success).
@@ -64,7 +65,7 @@ python scripts/build-assets.py
 
 Needs `Pillow`, `fontTools` and `brotli`. The script is idempotent — it wipes and
 rebuilds both output trees, prints a size report, and fails if the result
-exceeds 600 KB. Current total: **~408 KB**.
+exceeds 600 KB. Current total: **~554 KB**.
 
 It also composes `assets/web/og-image.jpg` (1200×630) for link previews, from
 the same key visual the page uses. Pillow needs a real sfnt to draw text, so the
@@ -81,6 +82,26 @@ Three things it deliberately skips:
   3554×1998 canvases that are ~95 % white plate.
 - `assets/SWEET BONANZA_*.svg` — SVGator wrappers around base64 rasters whose
   layers start at `scale(0,0)` and only appear via CSS keyframes.
+
+Sound: five SFX generated with ElevenLabs, kept in `assets/audio/_src/` and
+published to `assets/web/audio/` by `build_audio()`. They are already web-sized
+MP3s, so the build step is a copy — but it has to be a build step regardless,
+because `main()` wipes `assets/web/` and anything dropped there by hand would not
+survive the next run. **~146 KB for all five.** There is no `bomb-2`/`bomb-3`:
+the three bombs replay one clip at `playbackRate` 1.0 / 1.13 / 1.26, which is the
+escalating-reward effect for the price of one file.
+
+The page plays them through Web Audio, not `<audio>` elements — a single element
+retriggered on fast taps cuts its own tail off, and one element per overlap is a
+pool to manage. The `AudioContext` is built at load and starts suspended;
+decoding is allowed in that state, so the buffers are ready before the first tap
+and it is the *first* tap that makes a sound, not the second. Only `resume()`
+needs the user gesture. Anything that can fail — no Web Audio, a refused context,
+a 404 on a clip — leaves `playSfx` a silent no-op; no game state reads it.
+
+Sound is on by default, muted for `prefers-reduced-motion` (the audience that
+already has the confetti switched off), and the toggle in the masthead persists
+to `localStorage` under `tb-sfx-muted`.
 
 Fonts: fontsource's FiraGO "latin" files are mislabelled — each carries the full
 2519-codepoint set at ~250 KB, so five weights would be 1.25 MB. The build
