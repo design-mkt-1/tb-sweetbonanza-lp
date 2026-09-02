@@ -1116,9 +1116,12 @@ const $$ = sel => Array.from(document.querySelectorAll(sel));
 const SFX_SLUGS = ['flip', 'bomb', 'win', 'error', 'success'];
 const sfxUrl = slug => 'assets/web/audio/' + slug + '.mp3';
 
-/* Levels, by ear rather than by peak: flip fires on every tap and has to sit
-   under the rewards, win is the payoff and is allowed to be the loudest. */
-const SFX_GAIN = { flip: 0.35, bomb: 0.8, win: 1, error: 0.5, success: 0.7 };
+/* Levels: flip fires on every tap and has to sit under the rewards, win is the
+   payoff and is allowed to be the loudest. Measured on the master bus, these
+   land at roughly -7, -9, 0, -10 and -7 dB peak. flip is not pushed lower than
+   this despite firing most often -- the clip is a 59 ms transient, and at 0.35
+   it was quiet enough on laptop speakers to read as "the sound is broken". */
+const SFX_GAIN = { flip: 0.6, bomb: 0.8, win: 1, error: 0.5, success: 0.7 };
 
 const SFX_STORE_KEY = 'tb-sfx-muted';
 const sfxBuffers = new Map();
@@ -1196,17 +1199,33 @@ function setMuted(muted) {
 sfxMuted = storedMute();
 initAudio();
 
-/* The gesture the autoplay policy is waiting for. Once is enough. */
-addEventListener('pointerdown', function unlockAudio() {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  removeEventListener('pointerdown', unlockAudio);
-});
+/* The gesture the autoplay policy is waiting for.
+
+   The listener is removed on the context actually reaching "running", not on
+   the first gesture: resume() rejects if the browser did not count that gesture
+   as activation, and unhooking on the attempt rather than the result would
+   leave the page permanently silent with no way back. Retrying costs nothing --
+   once it is running the handler unhooks on its next call anyway.
+
+   keydown as well as pointerdown, so a keyboard player unlocks it too. */
+function unlockAudio() {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'running') {
+    removeEventListener('pointerdown', unlockAudio);
+    removeEventListener('keydown', unlockAudio);
+    return;
+  }
+  audioCtx.resume().catch(() => { /* not a trusted gesture; try the next one */ });
+}
+addEventListener('pointerdown', unlockAudio);
+addEventListener('keydown', unlockAudio);
 
 $('#sfx-toggle').addEventListener('click', () => {
   setMuted(!sfxMuted);
-  // Unmuting with no audible proof reads as broken, so confirm it with the
-  // lightest sound available.
-  if (!sfxMuted) playSfx('flip');
+  // Unmuting with no audible proof reads as broken, so confirm it -- with
+  // 'success' rather than the much quieter 'flip', because this doubles as the
+  // one deliberate "is sound working?" test a player can run.
+  if (!sfxMuted) playSfx('success');
 });
 setMuted(sfxMuted);
 
