@@ -1104,30 +1104,41 @@ const $$ = sel => Array.from(document.querySelectorAll(sel));
 /* ---------------------------------------------------------------------------
    Sound
 
-   Web Audio rather than <audio> elements: a single element retriggered on fast
-   taps cuts its own tail off, and one element per overlap is a pool to manage.
-   A BufferSource is single-use by design, so overlapping flips just work.
+   <audio> elements rather than Web Audio, and the reason is iOS: the hardware
+   Ring/Silent switch mutes an AudioContext outright, because iOS files Web
+   Audio under "ambient". HTMLMediaElement gets the "playback" category and
+   plays through the switch, the same way video does in Safari. Built on Web
+   Audio first, this feature was inaudible on every iPhone that was not already
+   off silent -- which is most of them, on a page that is opened from an ad.
 
-   The context is built at load and starts suspended -- decoding is allowed in
-   that state, so the buffers are ready before the player's first tap and it is
-   the first tap that makes a sound, not the second. resume() is what needs the
-   gesture, and that is all the pointerdown handler below does.
+   The trade is real and accepted: iOS treats HTMLMediaElement.volume as
+   read-only, so SFX_GAIN below shapes the mix everywhere except the platform
+   this was rewritten for. If a clip is wrong on iPhone it has to be fixed in
+   the file, not in the code. The sibling fs-penalty LP has the same limitation.
 --------------------------------------------------------------------------- */
 const SFX_SLUGS = ['flip', 'bomb', 'win', 'error', 'success'];
 const sfxUrl = slug => 'assets/web/audio/' + slug + '.mp3';
 
 /* Levels: flip fires on every tap and has to sit under the rewards, win is the
-   payoff and is allowed to be the loudest. Measured on the master bus, these
-   land at roughly -7, -9, 0, -10 and -7 dB peak. flip is not pushed lower than
-   this despite firing most often -- the clip is a 59 ms transient, and at 0.35
-   it was quiet enough on laptop speakers to read as "the sound is broken". */
+   payoff and is allowed to be the loudest. flip is not pushed lower than this
+   despite firing most often -- the clip is a 59 ms transient, and at 0.35 it was
+   quiet enough on laptop speakers to read as "the sound is broken".
+
+   Ignored on iOS, where volume is read-only. The clips' own peaks are -3.8,
+   -4.7, 0.1, -18.4 and -1.9 dBFS, so what an iPhone plays is that, unshaped. */
 const SFX_GAIN = { flip: 0.6, bomb: 0.8, win: 1, error: 0.5, success: 0.7 };
 
 const SFX_STORE_KEY = 'tb-sfx-muted';
-const sfxBuffers = new Map();
-let audioCtx   = null;
-let sfxMaster  = null;
-let sfxMuted   = false;
+
+/* Voices per sound. Only flip can realistically overlap -- a fast player taps
+   again before the previous 59 ms click has finished -- but the pool is uniform
+   because the cost is an idle <audio> element, and special-casing one slug is
+   more code than it saves. */
+const SFX_VOICES = 3;
+
+const sfxPool = new Map();   // slug -> { els: HTMLAudioElement[], next: int }
+let sfxUnlocked = false;
+let sfxMuted    = false;
 
 /* localStorage throws outright in Safari private mode, so neither read nor
    write is allowed to take the page down with it. */
@@ -1142,53 +1153,86 @@ function storedMute() {
 }
 
 function initAudio() {
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return;  // no Web Audio -> playSfx stays a no-op
-
-  try {
-    audioCtx = new Ctx();
-  } catch (err) {
-    return;
-  }
-
-  sfxMaster = audioCtx.createGain();
-  sfxMaster.gain.value = sfxMuted ? 0 : 1;
-  sfxMaster.connect(audioCtx.destination);
-
-  // Decoded up front for the same reason the symbols are: fetching at the
-  // moment of the tap means the first one is silent.
   SFX_SLUGS.forEach(slug => {
-    fetch(sfxUrl(slug))
-      .then(res => res.ok ? res.arrayBuffer() : Promise.reject(res.status))
-      .then(data => audioCtx.decodeAudioData(data))
-      .then(buffer => { sfxBuffers.set(slug, buffer); })
-      .catch(err => { console.warn('sfx ' + slug + ' unavailable:', err); });
+    const els = [];
+    for (let i = 0; i < SFX_VOICES; i++) {
+      const el = new Audio();
+      // The first voice of each sound warms the HTTP cache so the very first
+      // tap has something to play; the rest wait for the gesture and then load
+      // from that cache rather than firing five more requests on page load.
+      el.preload = i === 0 ? 'auto' : 'none';
+      el.src = sfxUrl(slug);
+      el.volume = SFX_GAIN[slug] ?? 1;   // honoured everywhere except iOS
+      el.addEventListener('error', () => {
+        console.warn('sfx ' + slug + ' unavailable');
+        els[i] = null;
+      });
+      els.push(el);
+    }
+    sfxPool.set(slug, { els, next: 0 });
   });
 }
 
-/* Every call is best-effort: a missing buffer, a dead context or a browser
-   that refused to resume all end up silent rather than thrown. Nothing in the
-   game reads a return value from this. */
+/* Priming has to happen inside a real gesture, and it has to happen for every
+   element that will ever play -- iOS grants playback per element, not per page,
+   which is why this primes the whole pool rather than cloning an element at tap
+   time and hoping the clone inherits the permission. */
+function unlockAudio() {
+  if (sfxUnlocked) return;
+  sfxUnlocked = true;
+
+  sfxPool.forEach(({ els }) => {
+    els.forEach(el => {
+      if (!el) return;
+      el.preload = 'auto';
+      el.muted = true;
+      const p = el.play();
+      if (p && p.catch) p.catch(() => { /* not counted; the next gesture retries */ });
+      el.pause();
+      el.currentTime = 0;
+      el.muted = false;
+    });
+  });
+}
+
+/* Every call is best-effort: a missing file, a pool that never unlocked or a
+   browser that refuses playback all end up silent rather than thrown. Nothing
+   in the game reads a return value from this. */
 function playSfx(slug, rate = 1) {
-  if (!audioCtx || sfxMuted) return;
-  const buffer = sfxBuffers.get(slug);
-  if (!buffer) return;
+  if (sfxMuted || !sfxUnlocked) return;
+  const voices = sfxPool.get(slug);
+  if (!voices) return;
 
-  const source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-  source.playbackRate.value = rate;
+  // Round-robin so a retrigger takes a free element instead of cutting the
+  // previous one off mid-tail.
+  const el = voices.els[voices.next];
+  voices.next = (voices.next + 1) % voices.els.length;
+  if (!el) return;
 
-  const gain = audioCtx.createGain();
-  gain.gain.value = SFX_GAIN[slug] ?? 1;
+  // Without this, playbackRate changes tempo and leaves pitch alone -- the
+  // opposite of the escalating-bomb effect. Safari needs the prefixed name;
+  // where neither exists the bombs simply do not rise, which is a smaller loss
+  // than shipping two more files against a 46 KB budget headroom.
+  el.preservesPitch = false;
+  el.webkitPreservesPitch = false;
+  el.mozPreservesPitch = false;
 
-  source.connect(gain).connect(sfxMaster);
-  source.start();
+  el.playbackRate = rate;
+  el.volume = SFX_GAIN[slug] ?? 1;
+  try { el.currentTime = 0; } catch (err) { /* not seekable yet */ }
+
+  const p = el.play();
+  if (p && p.catch) p.catch(() => { /* blocked; nothing depends on it */ });
 }
 
 function setMuted(muted) {
   sfxMuted = muted;
-  if (sfxMaster) sfxMaster.gain.value = muted ? 0 : 1;
   try { localStorage.setItem(SFX_STORE_KEY, muted ? '1' : '0'); } catch (err) { /* private mode */ }
+  // Muting mid-sound has to stop what is already playing, not just skip the
+  // next call -- win runs for three seconds.
+  if (muted) {
+    sfxPool.forEach(({ els }) => els.forEach(el => { if (el) el.pause(); }));
+  }
 
   const btn = $('#sfx-toggle');
   btn.classList.toggle('is-muted', muted);
@@ -1199,38 +1243,11 @@ function setMuted(muted) {
 sfxMuted = storedMute();
 initAudio();
 
-/* The gesture the autoplay policy is waiting for.
-
-   Four events, not one. iOS Safari is the reason: it does not reliably count
-   pointerdown (or touchstart) as the activation that unlocks an AudioContext --
-   touchend and click are the ones it honours. Listening only for pointerdown,
-   as this did at first, unlocks fine on desktop Chrome and leaves every iPhone
-   silent. keydown covers a keyboard player on desktop.
-
-   The listener is removed on the context actually reaching "running", not on
-   the first gesture: resume() rejects when the browser did not count that
-   gesture, and unhooking on the attempt rather than the result would leave the
-   page permanently silent with no way back. Retrying costs nothing. */
+/* The gesture the autoplay policy is waiting for. Four events rather than one
+   so no single browser's idea of what counts as activation is a single point of
+   failure; unlockAudio is idempotent, so the extras are free. */
 const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
-
-function unlockAudio() {
-  if (!audioCtx) return;
-  if (audioCtx.state === 'running') {
-    UNLOCK_EVENTS.forEach(type => removeEventListener(type, unlockAudio));
-    return;
-  }
-  audioCtx.resume().catch(() => { /* not counted as activation; try the next */ });
-}
-UNLOCK_EVENTS.forEach(type => addEventListener(type, unlockAudio));
-
-/* iOS suspends the context when the page goes to the background and does not
-   resume it on return, which reads as "the sound worked, then stopped". */
-addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => { /* needs a fresh gesture; the listeners above have it */ });
-    UNLOCK_EVENTS.forEach(type => addEventListener(type, unlockAudio));
-  }
-});
+UNLOCK_EVENTS.forEach(type => addEventListener(type, unlockAudio, { once: false }));
 
 $('#sfx-toggle').addEventListener('click', () => {
   setMuted(!sfxMuted);

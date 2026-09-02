@@ -91,13 +91,26 @@ survive the next run. **~146 KB for all five.** There is no `bomb-2`/`bomb-3`:
 the three bombs replay one clip at `playbackRate` 1.0 / 1.13 / 1.26, which is the
 escalating-reward effect for the price of one file.
 
-The page plays them through Web Audio, not `<audio>` elements — a single element
-retriggered on fast taps cuts its own tail off, and one element per overlap is a
-pool to manage. The `AudioContext` is built at load and starts suspended;
-decoding is allowed in that state, so the buffers are ready before the first tap
-and it is the *first* tap that makes a sound, not the second. Only `resume()`
-needs the user gesture. Anything that can fail — no Web Audio, a refused context,
-a 404 on a clip — leaves `playSfx` a silent no-op; no game state reads it.
+The page plays them through `<audio>` elements, **not** Web Audio, and the reason
+is iOS: the hardware Ring/Silent switch mutes an `AudioContext` outright, because
+iOS files Web Audio under "ambient". `HTMLMediaElement` gets the "playback"
+category and plays through the switch, the same way video does in Safari. Built
+on Web Audio first, this feature was inaudible on every iPhone not already off
+silent — which is most of them, on a page opened from an ad. The sibling
+`fs-penalty` LP reached the same design for the same reason.
+
+The trade is real: **iOS treats `HTMLMediaElement.volume` as read-only**, so
+`SFX_GAIN` shapes the mix everywhere except the platform this was rewritten for.
+A clip that is wrong on iPhone has to be fixed in the file, not in the code.
+
+Three voices per sound, all primed inside the first gesture — iOS grants playback
+per element, not per page, so cloning an unprimed element at tap time and hoping
+it inherits the permission is not safe. Round-robin across the voices means a
+retrigger takes a free element instead of cutting the previous one off. Unlock
+listens on `pointerdown`, `touchend`, `click` and `keydown` so no single browser's
+idea of activation is a single point of failure. Anything that can fail — a 404
+on a clip, a refused `play()`, `localStorage` throwing in private mode — leaves
+`playSfx` a silent no-op; no game state reads it.
 
 Sound is on by default, muted for `prefers-reduced-motion` (the audience that
 already has the confetti switched off), and the toggle in the masthead persists
