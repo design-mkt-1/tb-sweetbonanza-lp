@@ -178,9 +178,11 @@ def build_background() -> None:
 
 
 def build_game_logo() -> None:
+    # Landscape only. The two-line portrait lockup was tried for phone widths
+    # and rejected -- the wide one-line version is what the page uses at every
+    # breakpoint, so building the portrait variant just left a dead 47 KB file.
     variants = [
         ("Sweet Bonanza™_EN_landscape copy.png", "sb-logo-landscape", 900),
-        ("Sweet Bonanza™_EN_Portrait copy.png", "sb-logo-portrait", 560),
     ]
     for filename, slug, width in variants:
         src = ROOT / "assets" / filename

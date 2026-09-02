@@ -74,8 +74,8 @@
   /* pick grid */
   --cell-back-a:  #2b2f38;
   --cell-back-b:  #14161b;
-  --cell-front:   #ffffff;
-  --cell-spent:   #b9bdc7;  /* a used-up wrong pick */
+  --cell-front:   #0b0d11;  /* same dark plate the winning tile uses */
+  --cell-edge:    #2a3040;
   --gold:         #f5c842;
 
   --radius:       12px;
@@ -97,6 +97,10 @@ html { -webkit-text-size-adjust: 100%; overflow-x: clip; }
 body {
   margin: 0;
   min-height: 100dvh;
+  /* svh, not dvh: dvh grows when the browser chrome auto-hides, so a layout
+     that "fits" dvh still scrolls while the chrome is showing. svh is the
+     chrome-visible height, which is the case that has to fit. */
+  min-height: 100svh;
   font-family: FiraGO, "Fira Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: var(--tb-white);
   background-color: var(--tb-black);
@@ -140,28 +144,36 @@ body::after {
   width: 100%;
   max-width: 1180px;
   margin: 0 auto;
-  padding: 20px 16px 0;
-  flex: 1 0 auto;
+  padding: 12px 16px 0;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
 @media (min-width: 768px) { .shell { padding: 32px 32px 0; } }
 
-.masthead { display: flex; justify-content: center; margin-bottom: 18px; }
-.masthead img { width: 132px; height: auto; display: block; }
-@media (min-width: 768px) { .masthead img { width: 164px; } }
+.masthead { display: flex; justify-content: center; margin-bottom: 10px; }
+.masthead img { width: 120px; height: auto; display: block; }
+@media (min-width: 768px) { .masthead img { width: 164px; margin-bottom: 8px; } }
 
 .site-footer {
   flex: 0 0 auto;
-  padding: 24px 16px calc(20px + env(safe-area-inset-bottom));
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
   text-align: center;
   font-size: 11px;
   font-weight: 400;
   color: var(--f-muted);
 }
 
+/* Screens are flex columns so the grid (screen 1) and the card (screen 2) can
+   claim the leftover height instead of overflowing it. */
 .screen { display: none; }
-.screen.is-active { display: block; }
+.screen.is-active {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 
 /* ---------------------------------------------------------------------------
    Promo lockup — shared by the hero and the registration card
@@ -210,50 +222,51 @@ body::after {
 /* ---------------------------------------------------------------------------
    Screen 1 — pick grid
 --------------------------------------------------------------------------- */
-.hero { text-align: center; }
+.hero { flex: 0 0 auto; text-align: center; }
 .hero .game-logo {
   display: block;
   margin: 8px auto 0;
-  width: min(42vw, 170px);        /* portrait lockup */
+  width: min(72vw, 300px);        /* landscape lockup, aspect 5.45 */
   height: auto;
   filter: drop-shadow(0 8px 24px rgba(0, 209, 255, 0.35));
 }
-@media (min-width: 600px) { .hero .game-logo { width: 320px; } }
 @media (min-width: 768px) { .hero .game-logo { width: 420px; margin-top: 14px; } }
 
-/* Shows the exact tile the player is hunting for, so the rule is unmissable. */
+/* One status row: the tile being hunted, plus both counters. Stacking these
+   as separate rows cost 106px of the vertical budget for the same content. */
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0 0;
+}
 .target {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin: 14px 0 0;
-  padding: 5px 16px 5px 5px;
+  gap: 8px;
+  padding: 4px 14px 4px 4px;
   border: 1px solid var(--f-border);
   border-radius: 50px;
   background: rgba(18, 21, 28, 0.78);
 }
 .target img {
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 1px solid var(--gold);
   background: #000;
   object-fit: cover;
 }
-.target span { font-size: 14px; font-weight: 600; }
+.target span { font-size: 13px; font-weight: 600; }
 
-.counter-wrap {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin: 10px 0 0;
-}
 .counter {
-  padding: 7px 16px;
+  padding: 6px 14px;
   border: 1px solid var(--f-border);
   border-radius: 50px;
   background: var(--f-surface);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -261,18 +274,32 @@ body::after {
 .counter-left  { color: var(--f-muted); }
 .counter.is-bumped { animation: counterBounce 0.32s ease; }
 
+/* Claims the leftover height. `flex: 1 1 0` (not `auto`) so its size never
+   depends on the grid inside it -- that would feed back into the ResizeObserver
+   that sizes the grid. */
+.grid-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 10px 0;
+}
+
+/* Width is set by fitGrid() in JS. CSS container queries look like the elegant
+   answer here but cannot do it: `100cqh` resolves to 0 when the container's
+   block size comes from flex distribution, which is exactly this case. */
 .grid {
+  --g: 8px;
+  --max-w: 420px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin: 20px auto 0;
-  max-width: 420px;
+  gap: var(--g);
+  margin: 0;
   padding: 0;
   list-style: none;
+  width: min(100%, var(--max-w));
 }
-@media (min-width: 768px) {
-  .grid { grid-template-columns: repeat(6, 1fr); gap: 12px; max-width: 720px; }
-}
+@media (min-width: 768px) { .grid { --g: 12px; --max-w: 560px; } }
 
 /* A <button> is shrink-to-fit by default and would collapse inside the grid
    track, so it has to be stretched explicitly. */
@@ -321,7 +348,7 @@ body::after {
 .face-front {
   transform: rotateY(180deg);
   background: var(--cell-front);
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--cell-edge);
 }
 .face-front img { width: 78%; height: 78%; object-fit: contain; }
 
@@ -335,21 +362,26 @@ body::after {
 .cell.is-win.is-flipped .face-front { animation: winPop 0.5s ease 0.22s both; }
 
 /* A wrong pick stays face-up but reads as spent -- still identifiable, clearly
-   not in play any more. */
-.cell.is-miss .face-front { background: var(--cell-spent); }
-.cell.is-miss .face-front img { opacity: 0.6; filter: grayscale(0.45); }
+   not in play any more. Same dark plate, only the symbol is dimmed. */
+.cell.is-miss .face-front img { opacity: 0.5; filter: grayscale(0.5); }
 
 /* ---------------------------------------------------------------------------
    Screen 2 — reveal + registration
 --------------------------------------------------------------------------- */
 .reveal-wrap {
   animation: revealExpand 0.4s ease both;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 }
 
 .reveal { text-align: center; margin-bottom: 20px; }
+/* Once registration succeeds, the win recap above the card is stale context and
+   is the ~100px that pushes the success panel off a short phone screen. */
+.reveal-wrap:has(#success:not([hidden])) .reveal { display: none; }
 .reveal-scatters {
   margin: 0;
   font-size: 15px;
@@ -374,17 +406,28 @@ body::after {
   .reveal-bonus { font-size: 22px; }
 }
 
-/* Decorative glow blobs — desktop only, per the component's background layer */
+/* Decorative glow blobs — desktop only, per the component's background layer.
+   They live in their own clipped layer: glow-2 alone reaches 800px down a
+   ~620px stage, and left unclipped that extends the document and reintroduces
+   a scrollbar. Clipping .reg-stage itself is not an option -- it would also
+   cut off the bonus dropdown overlay. */
 .reg-stage { position: relative; width: 100%; display: flex; justify-content: center; }
-.glow { display: none; }
+.glows { display: none; }
 @media (min-width: 768px) {
+  .glows {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
   .glow {
     display: block;
     position: absolute;
     border-radius: 50%;
     filter: blur(45px);
     pointer-events: none;
-    z-index: 0;
   }
   .glow-1 { width: 400px; height: 400px; background: #ff2d55; opacity: 0.0706; left: calc(50% - 300px); top: 100px; }
   .glow-2 { width: 350px; height: 350px; background: #5856d6; opacity: 0.0706; left: calc(50% + 50px); top: 450px; }
@@ -405,11 +448,16 @@ body::after {
   gap: var(--gap);
   border-radius: 34px;
 }
+/* The card repeats the offer that .reveal states directly above it. Desktop has
+   the room and stays faithful to Figma 3:2828; on a phone it is 100px of
+   duplication we cannot afford. */
+@media (max-width: 767px) { .reg .promo { display: none; } }
+
 .reg-panel {
   display: flex;
   flex-direction: column;
   gap: var(--gap);
-  padding: 8px 8px 34px;
+  padding: 8px 8px 16px;
   border-radius: var(--radius);
   background: rgba(10, 11, 14, 0.5);
   backdrop-filter: blur(4px);
@@ -529,7 +577,7 @@ body::after {
 .field:not(.is-error) .field-error { display: none; }
 
 /* bonus dropdown */
-.bonus { display: flex; flex-direction: column; gap: 8px; }
+.bonus { position: relative; display: flex; flex-direction: column; gap: 8px; }
 .bonus-label { font-size: 13px; font-weight: 600; color: var(--f-muted); }
 
 .dropdown {
@@ -556,7 +604,15 @@ body::after {
 .chevron { flex: 0 0 auto; transition: transform 0.2s ease; }
 .dropdown[aria-expanded="true"] .chevron { transform: rotate(180deg); }
 
+/* Overlaid rather than in-flow: expanding it in the layout pushed the page
+   down by 147px and forced a scroll the moment it was opened. */
 .bonus-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -564,6 +620,7 @@ body::after {
   border: 1px solid var(--f-border);
   border-radius: var(--radius);
   background: var(--f-surface);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
 }
 .bonus-options[hidden] { display: none; }
 
@@ -653,7 +710,7 @@ body::after {
   z-index: 1;
   width: 100%;
   max-width: 360px;
-  padding: 24px 16px 34px;
+  padding: 24px 16px 16px;
   border-radius: var(--radius);
   background: #0a0b0e;
   display: flex;
@@ -787,25 +844,22 @@ body::after {
         <p class="promo-sub" data-copy="promoSub"></p>
       </div>
 
-      <picture>
-        <!-- The two-line lockup carries far better at phone widths; the wide
-             one-line version is only legible once there is room for it. -->
-        <source media="(min-width: 600px)" srcset="assets/web/sb-logo-landscape.webp" width="900" height="165">
-        <img class="game-logo" src="assets/web/sb-logo-portrait.webp"
-             alt="Sweet Bonanza" width="560" height="286" fetchpriority="high">
-      </picture>
+      <img class="game-logo" src="assets/web/sb-logo-landscape.webp"
+           alt="Sweet Bonanza" width="900" height="165" fetchpriority="high">
 
-      <p class="target">
-        <img src="assets/web/sym/bomb.webp" alt="" width="320" height="320">
-        <span data-copy="lede"></span>
-      </p>
-      <p class="counter-wrap">
+      <p class="status">
+        <span class="target">
+          <img src="assets/web/sym/bomb.webp" alt="" width="320" height="320">
+          <span data-copy="lede"></span>
+        </span>
         <span class="counter counter-found" id="counter-found" role="status" aria-live="polite"></span>
         <span class="counter counter-left" id="counter-left"></span>
       </p>
     </div>
 
-    <ul class="grid" id="grid" aria-label="Pick grid"></ul>
+    <div class="grid-wrap">
+      <ul class="grid" id="grid" aria-label="Pick grid"></ul>
+    </div>
   </section>
 
   <!-- ================ Screen 2 — reveal + registration ================ -->
@@ -818,9 +872,11 @@ body::after {
       </div>
 
       <div class="reg-stage">
-        <span class="glow glow-1"></span>
-        <span class="glow glow-2"></span>
-        <span class="glow glow-3"></span>
+        <span class="glows" aria-hidden="true">
+          <span class="glow glow-1"></span>
+          <span class="glow glow-2"></span>
+          <span class="glow glow-3"></span>
+        </span>
 
         <form class="reg" id="reg-form" novalidate>
           <div class="promo">
@@ -956,13 +1012,13 @@ body::after {
    "Welcome Freebet 55 0..."); these variables are what replaces them.
 --------------------------------------------------------------------------- */
 const CONFIG = {
-  TOTAL_CELLS:   24,
+  TOTAL_CELLS:   12,
   BOMBS_TO_FIND: 3,
 
   // How many taps the player gets. Re-rolled on every page load so the round
   // length varies; the outcome does not (see newRound).
-  ATTEMPTS_MIN:  4,
-  ATTEMPTS_MAX:  7,
+  ATTEMPTS_MIN:  3,
+  ATTEMPTS_MAX:  5,
 
   BONUS_PCT:  200,
   MAX_BONUS:  '1 000 000 UZS',
@@ -979,7 +1035,9 @@ const CONFIG = {
 const COPY = {
   pct:         CONFIG.BONUS_PCT + '%',
   promoSub:    'or up to ' + CONFIG.MAX_BONUS + ' + ' + CONFIG.FREE_SPINS + ' FS',
-  lede:        'Find ' + CONFIG.BOMBS_TO_FIND + ' of these to win',
+  // The chip shows the tile itself, so "of these" is redundant -- and dropping
+  // it keeps the status row on one line at 390px.
+  lede:        'Find ' + CONFIG.BOMBS_TO_FIND + ' to win',
   found:       n => n + ' / ' + CONFIG.BOMBS_TO_FIND + ' found',
   left:        n => n + (n === 1 ? ' pick left' : ' picks left'),
   revealFound: CONFIG.BOMBS_TO_FIND + ' / ' + CONFIG.BOMBS_TO_FIND + ' bombs found!',
@@ -1045,13 +1103,20 @@ function nextCandy() {
 }
 
 function newRound() {
-  // Fewer taps than bombs could never complete the round, and the grid would
-  // sit there locked-open forever. Clamp instead of hanging.
+  // Two ways a config edit could leave the grid unwinnable, both clamped rather
+  // than left to hang:
+  //   - fewer taps than bombs, so the third bomb never lands;
+  //   - more taps than cells, so every cell ends up disabled with no win.
+  // Neither can end the round, and there is no "out of taps" branch to catch it.
   const floor = Math.max(CONFIG.ATTEMPTS_MIN, CONFIG.BOMBS_TO_FIND);
+  const ceil  = Math.max(floor, Math.min(CONFIG.ATTEMPTS_MAX, CONFIG.TOTAL_CELLS));
   if (CONFIG.ATTEMPTS_MIN < CONFIG.BOMBS_TO_FIND) {
     console.warn('CONFIG.ATTEMPTS_MIN raised to BOMBS_TO_FIND (' + CONFIG.BOMBS_TO_FIND + ')');
   }
-  attemptsTotal = randInt(floor, Math.max(floor, CONFIG.ATTEMPTS_MAX));
+  if (CONFIG.ATTEMPTS_MAX > CONFIG.TOTAL_CELLS) {
+    console.warn('CONFIG.ATTEMPTS_MAX capped at TOTAL_CELLS (' + CONFIG.TOTAL_CELLS + ')');
+  }
+  attemptsTotal = randInt(floor, ceil);
   picksUsed = 0;
   bombsFound = 0;
   locked = false;
@@ -1071,7 +1136,7 @@ function buildGrid() {
     const cell = document.createElement('button');
     cell.type = 'button';
     cell.className = 'cell';
-    cell.style.animationDelay = (i % 7) * 0.18 + 's';
+    cell.style.animationDelay = (i % 4) * 0.18 + 's';
     cell.setAttribute('aria-label', 'Cell ' + (i + 1) + ', hidden');
     cell.innerHTML =
       '<span class="cell-inner">' +
@@ -1084,6 +1149,41 @@ function buildGrid() {
     gridEl.appendChild(li);
   }
 }
+
+/* Size the grid against whichever runs out first, width or leftover height, so
+   screen 1 never scrolls. Cells stop shrinking at 44px (the touch-target floor);
+   below that the page is allowed to scroll rather than become untappable. */
+const GRID_COLS = 4;
+const MIN_CELL  = 44;
+const gridWrapEl = $('.grid-wrap');
+
+function fitGrid() {
+  const rows = Math.ceil(CONFIG.TOTAL_CELLS / GRID_COLS);
+  const cs   = getComputedStyle(gridEl);
+  const gap  = parseFloat(cs.rowGap) || 8;
+  const maxW = parseFloat(cs.getPropertyValue('--max-w')) || 420;
+
+  const wrapCs = getComputedStyle(gridWrapEl);
+  const availH = gridWrapEl.clientHeight
+    - parseFloat(wrapCs.paddingTop) - parseFloat(wrapCs.paddingBottom);
+  const availW = Math.min(gridWrapEl.clientWidth, maxW);
+
+  const byHeight = (availH - (rows - 1) * gap) / rows;
+  const byWidth  = (availW - (GRID_COLS - 1) * gap) / GRID_COLS;
+  const cell     = Math.max(MIN_CELL, Math.min(byHeight, byWidth));
+
+  gridEl.style.width = (cell * GRID_COLS + gap * (GRID_COLS - 1)) + 'px';
+}
+
+/* Several signals rather than one: the observer covers layout shifts that never
+   touch the viewport (the font swapping in changes the hero height), while the
+   window events cover rotation and the mobile chrome collapsing. Cheap enough
+   to run on all of them. */
+const gridObserver = new ResizeObserver(fitGrid);
+gridObserver.observe(gridWrapEl);
+addEventListener('resize', fitGrid);
+addEventListener('orientationchange', fitGrid);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitGrid);
 
 /* The tiles are only attached to a cell at tap time, so decode them up front —
    otherwise the first flip of each symbol shows an empty card. */
@@ -1179,18 +1279,31 @@ tabs.forEach(tab => {
 const bonusToggle  = $('#bonus-toggle');
 const bonusOptions = $('#bonus-options');
 
+function setBonusOpen(open) {
+  bonusToggle.setAttribute('aria-expanded', String(open));
+  bonusOptions.hidden = !open;
+}
+
 bonusToggle.addEventListener('click', () => {
-  const open = bonusToggle.getAttribute('aria-expanded') === 'true';
-  bonusToggle.setAttribute('aria-expanded', String(!open));
-  bonusOptions.hidden = open;
+  setBonusOpen(bonusToggle.getAttribute('aria-expanded') !== 'true');
+});
+
+/* It overlays the page now, so it needs the dismissal an overlay implies. */
+document.addEventListener('click', event => {
+  if (!bonusOptions.hidden && !event.target.closest('.bonus')) setBonusOpen(false);
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !bonusOptions.hidden) {
+    setBonusOpen(false);
+    bonusToggle.focus();
+  }
 });
 
 $$('.option input').forEach(radio => {
   radio.addEventListener('change', () => {
     $('#bonus-value').textContent =
       radio.closest('.option').querySelector('.option-title').textContent;
-    bonusToggle.setAttribute('aria-expanded', 'false');
-    bonusOptions.hidden = true;
+    setBonusOpen(false);
   });
 });
 
@@ -1241,6 +1354,7 @@ $('#go-to-site').addEventListener('click', () => {
 preloadSymbols();
 newRound();
 buildGrid();
+fitGrid();
 updateCounters();
 </script>
 

@@ -1,12 +1,13 @@
 # TopBet × Sweet Bonanza — Landing Page
 
-Interactive casino LP: the player hunts a 24-cell candy grid for **three copies
+Interactive casino LP: the player hunts a 12-tile candy grid for **three copies
 of one specific tile** — the 200%/150FS golden bomb — then lands on a bonus
-reveal + TopBet registration form.
+reveal + TopBet registration form. It fits a phone screen without scrolling.
 
 ## The mechanic
 
-- The player gets a **random 4–7 taps** per page load (`ATTEMPTS_MIN`/`MAX`).
+- The board is **12 tiles** (4 × 3) and the player gets a **random 3–5 taps** per
+  page load (`ATTEMPTS_MIN`/`MAX`).
 - Only the bomb counts. Every other tile is a losing candy that stays face-up,
   desaturated, and cannot be tapped again.
 - The round is **rigged to win**: the outcome of a tap is decided by *which tap
@@ -63,7 +64,7 @@ python scripts/build-assets.py
 
 Needs `Pillow`, `fontTools` and `brotli`. The script is idempotent — it wipes and
 rebuilds both output trees, prints a size report, and fails if the result
-exceeds 600 KB. Current total: **~455 KB**.
+exceeds 600 KB. Current total: **~408 KB**.
 
 It also composes `assets/web/og-image.jpg` (1200×630) for link previews, from
 the same key visual the page uses. Pillow needs a real sfnt to draw text, so the
@@ -92,17 +93,24 @@ Every campaign-specific value is in the `CONFIG` object at the top of the
 
 ```js
 BONUS_PCT: 200, MAX_BONUS: '1 000 000 UZS', FREE_SPINS: 150, FREEBET: '55 000 UZS'
-TOTAL_CELLS: 24, BOMBS_TO_FIND: 3, ATTEMPTS_MIN: 4, ATTEMPTS_MAX: 7
+TOTAL_CELLS: 12, BOMBS_TO_FIND: 3, ATTEMPTS_MIN: 3, ATTEMPTS_MAX: 5
 DEMO_MODE: true, REGISTER_URL: 'https://example.com/register'
 ```
 
 `DEMO_MODE: true` (current) shows the Figma "Registration Successful!" panel and
 makes no network call. Set it to `false` and submit redirects to `REGISTER_URL`.
 
-Set `ATTEMPTS_MIN === ATTEMPTS_MAX` for a fixed round length. `ATTEMPTS_MIN` must
-stay `>= BOMBS_TO_FIND` — with fewer taps than bombs the round could never
-complete, so `newRound()` clamps it and warns rather than hanging the grid.
+Set `ATTEMPTS_MIN === ATTEMPTS_MAX` for a fixed round length.
 `ATTEMPTS_MIN === BOMBS_TO_FIND` is legal and means every tap is a win.
+
+Two ways a config edit could make the round unwinnable, both clamped in
+`newRound()` with a console warning rather than left to hang the grid:
+
+- **fewer taps than bombs** — the third bomb never lands;
+- **more taps than cells** — every tile ends up disabled with no win.
+
+Neither can end the round: every tap disables a tile and the only exit is
+`bombsFound >= BOMBS_TO_FIND`. There is no "out of taps" branch.
 
 ## Deviations from the Figma component
 
@@ -123,20 +131,39 @@ All intentional — worth raising with the designer:
    glyphs and renders the emoji as the letters "US".
 7. The hardcoded `+1` country code is kept as designed; a real country picker is
    out of scope.
+8. **The promo lockup is hidden inside the card below 768 px.** It repeats what
+   the reveal block states directly above it, and it is 100 px the phone
+   viewport cannot spare. Desktop keeps it, faithful to `3:2828`.
+9. **The bonus dropdown overlays instead of expanding in-flow.** In the Figma
+   component it is an in-flow block, which pushed the page down 147 px and
+   forced a scroll the moment it was opened.
 
 ## Responsive
 
+**The page does not scroll.** Every screen — the grid, the form (open dropdown
+included) and the success panel — fits the viewport.
+
 | Width | Grid | Controls | Card |
 |---|---|---|---|
-| < 768 px | 4 × 6, cells 75–89 px | 44 px | 350 px translucent panel, promo above it |
-| ≥ 768 px | 6 × 4, cells ~110 px | 54 px | 500 px opaque card, promo inside |
+| < 768 px | 4 × 3, cells ~83–94 px | 44 px | 350 px translucent panel, no promo lockup |
+| ≥ 768 px | 4 × 3, cells ~131 px | 54 px | 500 px opaque card, promo lockup inside |
 
-The Sweet Bonanza lockup swaps with a `<picture>`: the two-line portrait art
-below 600 px, the wide one-line version above it — the landscape version turns
-into unreadable ribbon at phone widths.
+The grid is sized by `fitGrid()` against whichever runs out first, width or
+leftover height. **CSS container queries look like the right tool and are not**:
+`100cqh` resolves to `0` when the container's block size comes from flex
+distribution, which is exactly this layout — measured, not assumed. Cells stop
+shrinking at 44 px; below that the page is allowed to scroll rather than become
+untappable. `fitGrid` re-runs from a `ResizeObserver`, `resize`,
+`orientationchange` and `document.fonts.ready` (the font swapping in changes the
+hero height after first paint).
 
-Verified at 375 / 430 / 768 / 1440 with no horizontal overflow in any screen
-state. `prefers-reduced-motion` disables the float, flip and confetti.
+`body` uses `min-height: 100svh`, not `dvh` — `dvh` grows when the mobile browser
+chrome auto-hides, so a layout that fits `dvh` still scrolls while the chrome is
+showing.
+
+Verified at 390×640, 390×690, 430×760 and 1440×900 with zero vertical or
+horizontal overflow in every screen state. `prefers-reduced-motion` disables the
+float, flip and confetti.
 
 ## Before it goes live
 
