@@ -1201,24 +1201,36 @@ initAudio();
 
 /* The gesture the autoplay policy is waiting for.
 
-   The listener is removed on the context actually reaching "running", not on
-   the first gesture: resume() rejects if the browser did not count that gesture
-   as activation, and unhooking on the attempt rather than the result would
-   leave the page permanently silent with no way back. Retrying costs nothing --
-   once it is running the handler unhooks on its next call anyway.
+   Four events, not one. iOS Safari is the reason: it does not reliably count
+   pointerdown (or touchstart) as the activation that unlocks an AudioContext --
+   touchend and click are the ones it honours. Listening only for pointerdown,
+   as this did at first, unlocks fine on desktop Chrome and leaves every iPhone
+   silent. keydown covers a keyboard player on desktop.
 
-   keydown as well as pointerdown, so a keyboard player unlocks it too. */
+   The listener is removed on the context actually reaching "running", not on
+   the first gesture: resume() rejects when the browser did not count that
+   gesture, and unhooking on the attempt rather than the result would leave the
+   page permanently silent with no way back. Retrying costs nothing. */
+const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
+
 function unlockAudio() {
   if (!audioCtx) return;
   if (audioCtx.state === 'running') {
-    removeEventListener('pointerdown', unlockAudio);
-    removeEventListener('keydown', unlockAudio);
+    UNLOCK_EVENTS.forEach(type => removeEventListener(type, unlockAudio));
     return;
   }
-  audioCtx.resume().catch(() => { /* not a trusted gesture; try the next one */ });
+  audioCtx.resume().catch(() => { /* not counted as activation; try the next */ });
 }
-addEventListener('pointerdown', unlockAudio);
-addEventListener('keydown', unlockAudio);
+UNLOCK_EVENTS.forEach(type => addEventListener(type, unlockAudio));
+
+/* iOS suspends the context when the page goes to the background and does not
+   resume it on return, which reads as "the sound worked, then stopped". */
+addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => { /* needs a fresh gesture; the listeners above have it */ });
+    UNLOCK_EVENTS.forEach(type => addEventListener(type, unlockAudio));
+  }
+});
 
 $('#sfx-toggle').addEventListener('click', () => {
   setMuted(!sfxMuted);
